@@ -4,8 +4,12 @@ import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
 import { createPublicClient, http } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
-const account = privateKeyToAccount(generatePrivateKey());
+// 使用已有的 session key（有 USDC 余额）
+const account = privateKeyToAccount("0xbe49a12d96d2592b76183dedf77c2b1fe09f83ef479cfe78c25fa655e929f359" as `0x${string}`);
 console.log("Signer:", account.address);
+console.log("");
+console.log("ℹ️  使用已有 Session Key（有 Monad 测试网 USDC 余额）");
+console.log("");
 
 const publicClient = createPublicClient({
   transport: http("https://testnet-rpc.monad.xyz/"),

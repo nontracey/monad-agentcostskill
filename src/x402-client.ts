@@ -51,7 +51,9 @@ function buildSigner(sessionKey: Account, rpcUrl: string, chainId: number) {
  * 2. 如果返回 402，自动解析 PaymentRequirements
  * 3. 用 Session Key 签名 EIP-712 授权（ERC-3009 或 Permit2）
  * 4. 附加 PAYMENT-SIGNATURE header 重试
- * 5. 返回最终响应
+ * 5. 服务端将签名提交给 Facilitator → /verify → /settle
+ * 6. Facilitator 在 Monad 链上完成 USDC 转账
+ * 7. 返回最终响应
  */
 export async function fetchWithX402(
   config: X402Config,
