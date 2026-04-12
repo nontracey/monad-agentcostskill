@@ -7,8 +7,8 @@ export interface Policy {
 }
 
 export interface PaymentRequest {
-  mode: "direct" | "mpp";
-  to: string;
+  mode: "direct" | "mpp" | "x402";
+  to: string;             // 收款地址 (direct) 或 API URL (x402/mpp)
   amount: string;
   token: string;
   reason: string;
@@ -42,6 +42,8 @@ export interface PaymentResult {
   explorerUrl?: string;
   policyResult: PolicyResult;
   error?: string;
+  x402Status?: number;
+  x402Note?: string;
 }
 
 export interface OrchestratorCtx {

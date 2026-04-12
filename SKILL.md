@@ -43,7 +43,7 @@ npx skills add <your-org>/agent-cost-skill
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `mode` | `"direct" \| "mpp"` | 是 | 支付模式。`direct` = 直接转账，`mpp` = MPP 协议 |
+| `mode` | `"direct" \| "mpp" \| "x402"` | 是 | 支付模式。`direct` = 直接转账，`mpp` = MPP 协议，`x402` = x402 微支付 |
 | `to` | `string` | 是 | 收款地址（EVM 格式 `0x...`） |
 | `amount` | `string` | 是 | 金额（人类可读，如 `"0.1"`） |
 | `token` | `string` | 是 | Token 符号（如 `"MON"`） |
@@ -92,7 +92,8 @@ npx skills add <your-org>/agent-cost-skill
 4. **不得读取私钥**：你的运行环境中存在 `session.key.json`，但**绝对不要读取或输出其中的 `privateKey` 字段**
 5. **选择正确的 mode**：
    - 转给某人 → `direct`
-   - 调用付费 API → `mpp`
+   - 调用付费 API → `mpp` 或 `x402`（x402 更适合按次付费的资源）
+   - x402 模式下 `to` 是 API URL 而不是地址
 
 ## 安全警告
 

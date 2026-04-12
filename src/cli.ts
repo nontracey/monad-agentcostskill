@@ -107,14 +107,14 @@ program
 program
   .command("pay")
   .description("Request a payment (policy enforced)")
-  .requiredOption("--mode <direct|mpp>", "Payment mode")
-  .requiredOption("--to <address>", "Recipient address")
+  .requiredOption("--mode <direct|mpp|x402>", "Payment mode")
+  .requiredOption("--to <address>", "Recipient address (direct/mpp) or API URL (x402)")
   .requiredOption("--amount <amount>", "Amount to send")
   .requiredOption("--token <token>", "Token symbol (e.g. MON)")
   .requiredOption("--reason <text>", "Reason for payment (audit trail)")
   .option("--agent <id>", "Agent identifier", "cli-user")
   .action(async (opts: {
-    mode: "direct" | "mpp";
+    mode: "direct" | "mpp" | "x402";
     to: string;
     amount: string;
     token: string;
@@ -146,7 +146,15 @@ program
       console.log(`   收款:   ${request.to}`);
       console.log(`   金额:   ${request.amount} ${request.token}`);
       console.log(`   原因:   ${request.reason}`);
-      console.log(`   交易:   ${result.explorerUrl}`);
+      if (result.explorerUrl) {
+        console.log(`   交易:   ${result.explorerUrl}`);
+      }
+      if (result.x402Note) {
+        console.log(`   x402:   ${result.x402Note}`);
+      }
+      if (result.x402Status) {
+        console.log(`   HTTP:   ${result.x402Status}`);
+      }
       console.log("   已记录到审计日志");
     } else if (result.status === "rejected") {
       console.log("❌ 支付被策略引擎拒绝");

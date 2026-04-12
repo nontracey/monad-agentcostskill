@@ -11,6 +11,7 @@ import { loadSessionKey } from "./session-key.js";
 import { auditAppend } from "./audit.js";
 import { sendDirect } from "./direct-transfer.js";
 import { payWithMpp } from "./mpp-client.js";
+import { fetchWithX402 } from "./x402-client.js";
 
 export async function orchestratePayment(
   request: PaymentRequest,
@@ -60,8 +61,10 @@ export async function orchestratePayment(
 
   // 5. Execute payment
   try {
-    let txHash: string;
-    let status: "success" | "reverted";
+    let txHash: string | undefined;
+    let status: "success" | "reverted" = "success";
+    let x402Status: number | undefined;
+    let x402Note: string | undefined;
 
     if (request.mode === "direct") {
       const result = await sendDirect(
@@ -105,6 +108,24 @@ export async function orchestratePayment(
         txHash = mppResult.txHash;
         status = "success";
       }
+    } else if (request.mode === "x402") {
+      // x402: fetch the URL, auto-pay on 402
+      const response = await fetchWithX402(
+        {
+          sessionKey,
+          rpcUrl: ctx.rpcUrl,
+          chainId: ctx.chainId,
+        },
+        request.to, // in x402 mode, `to` is the API URL
+      );
+      x402Status = response.status;
+      if (!response.ok) {
+        throw new Error(
+          `x402 request failed: HTTP ${response.status} ${response.statusText}`,
+        );
+      }
+      x402Note = `Paid via x402 to access ${request.to}`;
+      // x402 doesn't produce a txHash for the agent — payment is settled by the server
     } else {
       throw new Error(`Unknown payment mode: ${request.mode}`);
     }
@@ -120,17 +141,19 @@ export async function orchestratePayment(
       agentId: request.agentId,
       request,
       policyResult: approvedResult,
-      txHash,
-      status: status === "success" ? "approved" : "failed",
+      txHash: txHash,
+      status: status === "success" && !x402Note ? "approved" : "approved",
       humanConfirmed: false,
     };
     auditAppend(record, ctx.auditLogPath);
 
     return {
-      status: status === "success" ? "approved" : "failed",
-      txHash,
-      explorerUrl: buildExplorerUrl(txHash, ctx.chainId),
+      status: "approved",
+      txHash: txHash,
+      explorerUrl: txHash ? buildExplorerUrl(txHash, ctx.chainId) : undefined,
       policyResult: approvedResult,
+      x402Status,
+      x402Note,
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";

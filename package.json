@@ -12,11 +12,22 @@
     "start": "node dist/cli.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "keywords": ["agent", "wallet", "monad", "mpp", "x402", "policy", "audit"],
+  "keywords": [
+    "agent",
+    "wallet",
+    "monad",
+    "mpp",
+    "x402",
+    "policy",
+    "audit"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@x402/core": "^2.9.0",
+    "@x402/evm": "^2.9.0",
+    "@x402/fetch": "^2.9.0",
     "commander": "^13.1.0",
     "dotenv": "^17.4.1",
     "viem": "^2.47.12"

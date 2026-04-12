@@ -20,7 +20,7 @@ Agent ──pay()──→ Policy Engine ──approve?──→ Session Key Sig
 |---|---|---|
 | **Direct Transfer** | Agent 直接转 MON 给某人 | viem 原生转账 |
 | **MPP** | Agent 调用付费 API | @monad-crypto/mpp (push mode) |
-| **x402** | 按次付费的资源访问 | 预留扩展点（MVP 未实现） |
+| **x402** | 按次付费的资源访问 | @x402/fetch + @x402/evm（已实现） |
 
 ## 快速开始
 
