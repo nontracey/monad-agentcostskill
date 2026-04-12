@@ -1,0 +1,29 @@
+{
+  "name": "agent-cost-skill",
+  "version": "0.1.0",
+  "description": "Agent-native wallet for safe spending on Monad via MPP, x402, or direct transfer, with policy engine, session keys, and audit logging.",
+  "main": "dist/cli.js",
+  "bin": {
+    "agent-cost": "dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "keywords": ["agent", "wallet", "monad", "mpp", "x402", "policy", "audit"],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^17.4.1",
+    "viem": "^2.47.12"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.0"
+  }
+}

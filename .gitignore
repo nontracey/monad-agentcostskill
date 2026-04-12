@@ -1,0 +1,7 @@
+.env
+session.key.json
+policies.json
+audit.log
+node_modules/
+dist/
+*.tsbuildinfo
