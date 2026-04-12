@@ -148,6 +148,12 @@ const server = createServer(async (req, res) => {
       // 2. Settle (链上结算)
       console.log("💰 Settling payment on Monad testnet...");
       const settleResult = await facilitator.settle(paymentPayload, requirements);
+      // 单独打印完整交易哈希
+      const settleAny = settleResult as any;
+      const txHash = settleAny?.transaction?.hash || settleAny?.transaction || settleAny?.txHash || "N/A";
+      // 用 JSON 格式输出，避免被截断
+      process.stderr.write("TX_HASH_START" + txHash + "TX_HASH_END\n");
+      console.log("   ✅ 交易哈希:", txHash.slice(0, 20) + "..." + txHash.slice(-20));
       console.log(`   Settle:   ${safeJson(settleResult).slice(0, 160)}`);
 
       // 3. Success
