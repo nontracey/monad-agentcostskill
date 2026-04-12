@@ -68,6 +68,7 @@ export async function fetchWithX402(
     schemes: [
       {
         network,
+        x402Version: 2,
         client: new ExactEvmScheme(signer),
       },
     ],

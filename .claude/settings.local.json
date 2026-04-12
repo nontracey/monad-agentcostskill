@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsx:*)",
+      "Bash(curl -s http://localhost:3456/api/paid-content 2>&1 | head -20)"
+    ]
+  }
+}
