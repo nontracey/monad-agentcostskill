@@ -15,6 +15,7 @@ import type { OrchestratorCtx, PaymentRequest } from "./types.js";
 import { shortenAddress } from "./types.js";
 import * as fmt from "./fmt.js";
 import { auditTableColored } from "./fmt.js";
+import { notifyRead, generateDailyReport, formatDailyReport } from "./notifier.js";
 
 const program = new Command();
 program.name("agent-cost").description("Agent-native wallet with policy enforcement and audit logging").version("0.1.0");
@@ -71,14 +72,18 @@ program
       const singleLimit = process.env.SINGLE_LIMIT || "0.5";
       const dailyLimit = process.env.DAILY_LIMIT || "1.0";
       const allowedTokens = (process.env.ALLOWED_TOKENS || "MON").split(",");
-      policy = {
+      const newPolicy = {
         singleLimit,
         dailyLimit,
         allowedTokens,
         whitelistAddresses: [],
         sessionId: sessionKey.address,
+        timeWindow: { enabled: false, startHour: 9, endHour: 18 },
+        rateLimit: { enabled: false, maxPerMinute: 5 },
+        agentTiers: [],
       };
-      savePolicy(policy, policyPath);
+      savePolicy(newPolicy, policyPath);
+      policy = newPolicy;
     } else {
       policy.sessionId = sessionKey.address;
       savePolicy(policy, policyPath);
@@ -264,6 +269,54 @@ program
     console.log(`   🪙 允许Token:      ${fmt.green(policy.allowedTokens.join(", "))}`);
     console.log(`   📋 白名单地址:     ${policy.whitelistAddresses.length > 0 ? fmt.cyan(policy.whitelistAddresses.join(", ")) : fmt.dim("(无限制)")}`);
     console.log(`   🔑 Session Key ID: ${policy.sessionId ? fmt.monospace(policy.sessionId) : fmt.dim("(未设置)")}`);
+    console.log("");
+    console.log(fmt.dim("📋 新增策略规则："));
+    console.log(`   ⏰ 时间窗口:       ${policy.timeWindow.enabled ? fmt.green(`${policy.timeWindow.startHour}:00-${policy.timeWindow.endHour}:00`) : fmt.dim("未启用")}`);
+    console.log(`   ⚡ 频率限制:       ${policy.rateLimit.enabled ? fmt.green(`${policy.rateLimit.maxPerMinute} 次/分钟`) : fmt.dim("未启用")}`);
+    console.log(`   👥 Agent 分级:     ${policy.agentTiers.length > 0 ? fmt.cyan(`${policy.agentTiers.length} 个 Agent`) : fmt.dim("无")}`);
+    if (policy.agentTiers.length > 0) {
+      for (const tier of policy.agentTiers) {
+        console.log(`      • ${tier.agentId}: 单笔 ${tier.singleLimit || "默认"}, 每日 ${tier.dailyLimit || "默认"}`);
+      }
+    }
+  });
+
+// ── report ────────────────────────────────────────────────────────
+program
+  .command("report")
+  .description("Generate daily budget report")
+  .option("-d, --date <YYYY-MM-DD>", "Report date (default: today)")
+  .action((opts: { date?: string }) => {
+    const auditPath = getAuditPath();
+    const records = auditRead(auditPath);
+    const date = opts.date || new Date().toISOString().slice(0, 10);
+    const report = generateDailyReport(records, date);
+    console.log(formatDailyReport(report));
+
+    // Save notification
+    const notifPath = resolve(getDataDir(), "notifications.log");
+    notifyRead(notifPath); // Ensure file exists
+  });
+
+// ── notifications ─────────────────────────────────────────────────
+program
+  .command("notifications")
+  .description("View notification history")
+  .option("-l, --limit <n>", "Number of recent records", "20")
+  .action((opts: { limit: string }) => {
+    const notifPath = resolve(getDataDir(), "notifications.log");
+    const records = notifyRead(notifPath, Number(opts.limit));
+    if (records.length === 0) {
+      console.log(fmt.dim("暂无通知记录。"));
+      return;
+    }
+    for (const r of records) {
+      const icon = r.severity === "error" ? "❌" : r.severity === "warning" ? "⚠️" : "ℹ️";
+      const time = r.timestamp.slice(0, 19).replace("T", " ");
+      console.log(`${icon} [${fmt.dim(time)}] ${fmt.bold(r.title)}`);
+      console.log(`   ${r.message}`);
+      console.log("");
+    }
   });
 
 program.parse();

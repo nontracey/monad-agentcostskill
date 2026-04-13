@@ -4,6 +4,43 @@ export interface Policy {
   allowedTokens: string[];
   whitelistAddresses: string[];
   sessionId: string | null;
+  timeWindow: TimeWindow;
+  rateLimit: RateLimit;
+  agentTiers: AgentTier[];
+}
+
+export interface TimeWindow {
+  enabled: boolean;
+  startHour: number;
+  endHour: number;
+}
+
+export interface RateLimit {
+  enabled: boolean;
+  maxPerMinute: number;
+}
+
+export interface AgentTier {
+  agentId: string;
+  singleLimit?: string;
+  dailyLimit?: string;
+}
+
+export interface NotificationRecord {
+  timestamp: string;
+  type: "payment" | "warning" | "daily_report";
+  title: string;
+  message: string;
+  severity: "info" | "warning" | "error";
+}
+
+export interface DailyReport {
+  date: string;
+  totalPayments: number;
+  approvedPayments: number;
+  rejectedPayments: number;
+  totalSpent: Record<string, number>;
+  topAgents: { agentId: string; count: number; amount: number }[];
 }
 
 export interface PaymentRequest {
@@ -38,16 +75,8 @@ export interface DashboardData {
   importedAt: string;
   x402ServerUrl?: string;
   x402Price?: string;
+  notifications?: NotificationRecord[];
+  dailyReports?: DailyReport[];
 }
 
-export interface X402Config {
-  port: number;
-  price: string;
-  priceDisplay: string;
-  usdcContract: string;
-  payTo: string;
-  chainId: number;
-  facilitatorUrl: string;
-}
-
-export type TabKey = "dashboard" | "x402" | "history" | "policy";
+export type TabKey = "dashboard" | "x402" | "history" | "policy" | "notifications";

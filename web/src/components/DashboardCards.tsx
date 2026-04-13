@@ -83,6 +83,11 @@ interface PolicyInfoProps {
 }
 
 export function PolicyInfo({ policy }: PolicyInfoProps) {
+  // 兼容旧数据
+  const timeWindow = policy.timeWindow || { enabled: false, startHour: 9, endHour: 18 };
+  const rateLimit = policy.rateLimit || { enabled: false, maxPerMinute: 5 };
+  const agentTiers = policy.agentTiers || [];
+
   return (
     <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #f0f0f0" }}>
       <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: 600, color: "#111827" }}>
@@ -110,6 +115,48 @@ export function PolicyInfo({ policy }: PolicyInfoProps) {
           </div>
         </div>
       </div>
+
+      {/* Phase 3: New rules */}
+      <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #f3f4f6" }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280", marginBottom: "12px" }}>新增策略规则</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+          <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "8px" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af" }}>⏰ 时间窗口</div>
+            <div style={{ fontSize: "14px", fontWeight: 600, color: timeWindow.enabled ? "#22c55e" : "#9ca3af" }}>
+              {timeWindow.enabled
+                ? `${timeWindow.startHour}:00 - ${timeWindow.endHour}:00`
+                : "未启用"}
+            </div>
+          </div>
+          <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "8px" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af" }}>⚡ 频率限制</div>
+            <div style={{ fontSize: "14px", fontWeight: 600, color: rateLimit.enabled ? "#22c55e" : "#9ca3af" }}>
+              {rateLimit.enabled
+                ? `${rateLimit.maxPerMinute} 次/分钟`
+                : "未启用"}
+            </div>
+          </div>
+          <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "8px" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af" }}>👥 Agent 分级</div>
+            <div style={{ fontSize: "14px", fontWeight: 600, color: agentTiers.length > 0 ? "#22c55e" : "#9ca3af" }}>
+              {agentTiers.length > 0
+                ? `${agentTiers.length} 个 Agent`
+                : "无"}
+            </div>
+          </div>
+        </div>
+        {agentTiers.length > 0 && (
+          <div style={{ marginTop: "12px" }}>
+            {agentTiers.map((tier, i) => (
+              <div key={i} style={{ padding: "8px 12px", background: "#f9fafb", borderRadius: "6px", marginBottom: "4px", fontSize: "13px", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 600, color: "#111827" }}>{tier.agentId}</span>
+                <span style={{ color: "#6b7280" }}>单笔 {tier.singleLimit || "默认"} / 每日 {tier.dailyLimit || "默认"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {policy.sessionId && (
         <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #f3f4f6" }}>
           <div style={{ fontSize: "12px", color: "#9ca3af" }}>Session Key</div>

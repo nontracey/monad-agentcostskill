@@ -4,14 +4,21 @@ import type {
   AuditRecord,
   PaymentResult,
   OrchestratorCtx,
+  NotificationRecord,
 } from "./types.js";
 import { buildExplorerUrl } from "./types.js";
 import { loadPolicy, evaluatePolicy, calcSpentToday } from "./policy.js";
 import { loadSessionKey } from "./session-key.js";
-import { auditAppend } from "./audit.js";
+import { auditAppend, auditRead } from "./audit.js";
 import { sendDirect } from "./direct-transfer.js";
 import { payWithMpp } from "./mpp-client.js";
 import { fetchWithX402 } from "./x402-client.js";
+import { notifyRecord, sendDiscordWebhook } from "./notifier.js";
+import { resolve } from "node:path";
+
+function getNotificationPath(): string {
+  return resolve(process.cwd(), "data", "notifications.log");
+}
 
 export async function orchestratePayment(
   request: PaymentRequest,
@@ -43,8 +50,11 @@ export async function orchestratePayment(
   // 3. Calculate spent today
   const spentToday = calcSpentToday(ctx.auditLogPath, request.token);
 
-  // 4. Evaluate policy
-  const policyResult = evaluatePolicy(request, policy, spentToday);
+  // 4. Load recent payments for rate limit check
+  const recentPayments = auditRead(ctx.auditLogPath, 100);
+
+  // 5. Evaluate policy (with new rules)
+  const policyResult = evaluatePolicy(request, policy, spentToday, recentPayments);
 
   if (!policyResult.allowed) {
     const record: AuditRecord = {
@@ -56,10 +66,32 @@ export async function orchestratePayment(
       humanConfirmed: false,
     };
     auditAppend(record, ctx.auditLogPath);
+
+    // Send notification for rejected payments
+    const notifPath = getNotificationPath();
+    const warning: NotificationRecord = {
+      timestamp: new Date().toISOString(),
+      type: "warning",
+      title: "支付被拒绝",
+      message: `Agent ${request.agentId} 请求 ${request.amount} ${request.token} 被拒绝: ${policyResult.reason}`,
+      severity: "warning",
+    };
+    notifyRecord(warning, notifPath);
+
+    // Discord webhook
+    if (process.env.DISCORD_WEBHOOK_URL) {
+      await sendDiscordWebhook(
+        process.env.DISCORD_WEBHOOK_URL,
+        "支付被拒绝",
+        `${request.agentId} 请求 ${request.amount} ${request.token}\n原因: ${policyResult.reason}`,
+        "warning",
+      );
+    }
+
     return { status: "rejected", policyResult };
   }
 
-  // 5. Execute payment
+  // 6. Execute payment
   try {
     let txHash: string | undefined;
     let status: "success" | "reverted" = "success";
@@ -92,7 +124,6 @@ export async function orchestratePayment(
       );
 
       if (mppResult.status === "fallback_to_direct") {
-        // Fallback to direct transfer
         const result = await sendDirect(
           sessionKey,
           request.to,
@@ -109,14 +140,13 @@ export async function orchestratePayment(
         status = "success";
       }
     } else if (request.mode === "x402") {
-      // x402: fetch the URL, auto-pay on 402
       const response = await fetchWithX402(
         {
           sessionKey,
           rpcUrl: ctx.rpcUrl,
           chainId: ctx.chainId,
         },
-        request.to, // in x402 mode, `to` is the API URL
+        request.to,
       );
       x402Status = response.status;
       if (!response.ok) {
@@ -125,7 +155,6 @@ export async function orchestratePayment(
         );
       }
       x402Note = `Paid via x402 to access ${request.to}`;
-      // x402 doesn't produce a txHash for the agent — payment is settled by the server
     } else {
       throw new Error(`Unknown payment mode: ${request.mode}`);
     }
@@ -146,6 +175,26 @@ export async function orchestratePayment(
       humanConfirmed: false,
     };
     auditAppend(record, ctx.auditLogPath);
+
+    // Send notification for approved payments
+    const notifPath = getNotificationPath();
+    const paymentNotif: NotificationRecord = {
+      timestamp: new Date().toISOString(),
+      type: "payment",
+      title: "支付成功",
+      message: `${request.agentId} 支付 ${request.amount} ${request.token} → ${request.to}\n原因: ${request.reason}`,
+      severity: "info",
+    };
+    notifyRecord(paymentNotif, notifPath);
+
+    if (process.env.DISCORD_WEBHOOK_URL && txHash) {
+      await sendDiscordWebhook(
+        process.env.DISCORD_WEBHOOK_URL,
+        "支付成功",
+        `${request.agentId} 支付 ${request.amount} ${request.token}\n交易: ${buildExplorerUrl(txHash, ctx.chainId)}`,
+        "info",
+      );
+    }
 
     return {
       status: "approved",
@@ -171,6 +220,26 @@ export async function orchestratePayment(
       humanConfirmed: false,
     };
     auditAppend(record, ctx.auditLogPath);
+
+    // Send notification for failed payments
+    const notifPath = getNotificationPath();
+    const errorNotif: NotificationRecord = {
+      timestamp: new Date().toISOString(),
+      type: "warning",
+      title: "支付失败",
+      message: `${request.agentId} 支付 ${request.amount} ${request.token} 失败: ${errorMsg}`,
+      severity: "error",
+    };
+    notifyRecord(errorNotif, notifPath);
+
+    if (process.env.DISCORD_WEBHOOK_URL) {
+      await sendDiscordWebhook(
+        process.env.DISCORD_WEBHOOK_URL,
+        "支付失败",
+        `${request.agentId} 支付失败\n错误: ${errorMsg}`,
+        "error",
+      );
+    }
 
     return {
       status: "failed",

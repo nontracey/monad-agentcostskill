@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import type { AuditRecord, Policy, DashboardData, TabKey } from "./types";
+import type { AuditRecord, Policy, DashboardData, TabKey, NotificationRecord } from "./types";
 import { calcDailySpent, countByMode } from "./utils";
 import { StatCard, ProgressBar, PolicyInfo } from "./components/DashboardCards";
 import { AuditTable } from "./components/AuditTable";
 import { X402Guide } from "./components/X402Guide";
+import { NotificationsPanel } from "./components/NotificationsPanel";
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -20,6 +21,7 @@ export default function Dashboard() {
       let auditRecords: AuditRecord[] = [];
       let policy: Policy | null = null;
       let sessionKeyAddress: string | null = null;
+      let notifications: NotificationRecord[] = [];
 
       for (const file of Array.from(files)) {
         const text = await file.text();
@@ -39,6 +41,16 @@ export default function Dashboard() {
         } else if (file.name === "session.key.json") {
           const parsed = JSON.parse(text);
           sessionKeyAddress = parsed.address || null;
+        } else if (file.name === "notifications.log") {
+          const lines = text.split("\n").filter((l) => l.trim().length > 0);
+          for (const line of lines) {
+            try {
+              notifications.push(JSON.parse(line) as NotificationRecord);
+            } catch {
+              // Skip malformed lines
+            }
+          }
+          notifications.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
         }
       }
 
@@ -47,11 +59,25 @@ export default function Dashboard() {
         return;
       }
 
+      // 兼容旧策略文件，填充默认值
+      if (policy) {
+        if (!policy.timeWindow) {
+          policy.timeWindow = { enabled: false, startHour: 9, endHour: 18 };
+        }
+        if (!policy.rateLimit) {
+          policy.rateLimit = { enabled: false, maxPerMinute: 5 };
+        }
+        if (!policy.agentTiers) {
+          policy.agentTiers = [];
+        }
+      }
+
       setData({
         policy,
         auditRecords,
         sessionKeyAddress,
         importedAt: new Date().toLocaleString("zh-CN"),
+        notifications,
       });
     } catch (err) {
       setError(`解析失败: ${err instanceof Error ? err.message : "未知错误"}`);
@@ -89,8 +115,8 @@ export default function Dashboard() {
               导入数据文件
             </h2>
             <p style={{ color: "#6b7280", fontSize: "14px", margin: "0 0 24px 0" }}>
-              选择 <code style={codeStyle}>audit.log</code>、<code style={codeStyle}>policies.json</code> 或{" "}
-              <code style={codeStyle}>session.key.json</code> 文件（可多选）
+              选择 <code style={codeStyle}>audit.log</code>、<code style={codeStyle}>policies.json</code>、{" "}
+              <code style={codeStyle}>session.key.json</code> 或 <code style={codeStyle}>notifications.log</code> 文件（可多选）
             </p>
             <input
               ref={fileInputRef}
@@ -136,6 +162,7 @@ export default function Dashboard() {
     { key: "dashboard", label: "总览", icon: "📊" },
     { key: "x402", label: "x402 协议", icon: "⚡" },
     { key: "history", label: "交易历史", icon: "📜" },
+    { key: "notifications", label: "通知 & 报告", icon: "🔔" },
     { key: "policy", label: "策略配置", icon: "📋" },
   ];
 
@@ -280,6 +307,15 @@ export default function Dashboard() {
 
         {/* ── History Tab ──────────────────────────────────── */}
         {activeTab === "history" && <AuditTable records={data.auditRecords} />}
+
+        {/* ── Notifications Tab ────────────────────────────── */}
+        {activeTab === "notifications" && (
+          <NotificationsPanel
+            notifications={data.notifications || []}
+            auditRecords={data.auditRecords}
+            policy={data.policy}
+          />
+        )}
 
         {/* ── Policy Tab ───────────────────────────────────── */}
         {activeTab === "policy" && data.policy && <PolicyInfo policy={data.policy} />}

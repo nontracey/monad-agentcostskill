@@ -12,6 +12,9 @@ const defaultPolicy: Policy = {
   allowedTokens: ["MON", "USDC"],
   whitelistAddresses: [],
   sessionId: "0xSessionKey123",
+  timeWindow: { enabled: false, startHour: 9, endHour: 18 },
+  rateLimit: { enabled: false, maxPerMinute: 5 },
+  agentTiers: [],
 };
 
 function makeRequest(overrides: Partial<PaymentRequest> = {}): PaymentRequest {

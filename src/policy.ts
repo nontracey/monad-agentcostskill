@@ -8,13 +8,34 @@ const DEFAULT_POLICY: Policy = {
   allowedTokens: ["MON"],
   whitelistAddresses: [],
   sessionId: null,
+  timeWindow: { enabled: false, startHour: 9, endHour: 18 },
+  rateLimit: { enabled: false, maxPerMinute: 5 },
+  agentTiers: [],
 };
 
 export function evaluatePolicy(
   request: PaymentRequest,
   policy: Policy,
   spentToday: number,
+  recentPayments: AuditRecord[] = [],
 ): PolicyResult {
+  // 0. Check Agent-specific tier limits
+  const agentTier = policy.agentTiers.find(
+    (t) => t.agentId === request.agentId,
+  );
+  if (agentTier) {
+    if (agentTier.singleLimit) {
+      const amount = Number(request.amount);
+      if (amount > Number(agentTier.singleLimit)) {
+        return {
+          allowed: false,
+          reason: `Agent ${request.agentId} amount ${amount} exceeds tier single limit ${agentTier.singleLimit}`,
+          matchedRule: "exceeded_agent_tier_single_limit",
+        };
+      }
+    }
+  }
+
   // 1. Check token allowed
   if (!policy.allowedTokens.includes(request.token.toUpperCase())) {
     return {
@@ -34,25 +55,56 @@ export function evaluatePolicy(
     };
   }
 
-  // 3. Check single limit
-  if (amount > Number(policy.singleLimit)) {
+  // 3. Check single limit (use agent tier if available)
+  const singleLimit = agentTier?.singleLimit ?? policy.singleLimit;
+  if (amount > Number(singleLimit)) {
     return {
       allowed: false,
-      reason: `Amount ${amount} exceeds single limit ${policy.singleLimit}`,
+      reason: `Amount ${amount} exceeds single limit ${singleLimit}`,
       matchedRule: "exceeded_single_limit",
     };
   }
 
-  // 4. Check daily limit
-  if (spentToday + amount > Number(policy.dailyLimit)) {
+  // 4. Check daily limit (use agent tier if available)
+  const dailyLimit = agentTier?.dailyLimit ?? policy.dailyLimit;
+  if (spentToday + amount > Number(dailyLimit)) {
     return {
       allowed: false,
-      reason: `Would exceed daily limit. Already spent ${spentToday} / ${policy.dailyLimit}, requested ${amount}`,
+      reason: `Would exceed daily limit. Already spent ${spentToday} / ${dailyLimit}, requested ${amount}`,
       matchedRule: "exceeded_daily_limit",
     };
   }
 
-  // 5. Check whitelist (only if non-empty)
+  // 5. Check time window
+  if (policy.timeWindow.enabled) {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const { startHour, endHour } = policy.timeWindow;
+    if (currentHour < startHour || currentHour >= endHour) {
+      return {
+        allowed: false,
+        reason: `Outside allowed time window (${startHour}:00-${endHour}:00). Current hour: ${currentHour}`,
+        matchedRule: "outside_time_window",
+      };
+    }
+  }
+
+  // 6. Check rate limit
+  if (policy.rateLimit.enabled) {
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+    const recentCount = recentPayments.filter(
+      (r) => r.timestamp > oneMinuteAgo && r.status === "approved",
+    ).length;
+    if (recentCount >= policy.rateLimit.maxPerMinute) {
+      return {
+        allowed: false,
+        reason: `Rate limit exceeded. ${recentCount}/${policy.rateLimit.maxPerMinute} payments in last minute`,
+        matchedRule: "exceeded_rate_limit",
+      };
+    }
+  }
+
+  // 7. Check whitelist (only if non-empty)
   if (policy.whitelistAddresses.length > 0) {
     const normalizedTo = request.to.toLowerCase();
     const whitelisted = policy.whitelistAddresses.some(
@@ -82,13 +134,15 @@ export function loadPolicy(configPath: string): Policy {
     }
     const raw = readFileSync(configPath, "utf-8");
     const parsed = JSON.parse(raw) as Partial<Policy>;
-    // Fill missing fields with defaults
     return {
       singleLimit: parsed.singleLimit ?? DEFAULT_POLICY.singleLimit,
       dailyLimit: parsed.dailyLimit ?? DEFAULT_POLICY.dailyLimit,
       allowedTokens: parsed.allowedTokens ?? DEFAULT_POLICY.allowedTokens,
       whitelistAddresses: parsed.whitelistAddresses ?? DEFAULT_POLICY.whitelistAddresses,
       sessionId: parsed.sessionId ?? DEFAULT_POLICY.sessionId,
+      timeWindow: parsed.timeWindow ?? DEFAULT_POLICY.timeWindow,
+      rateLimit: parsed.rateLimit ?? DEFAULT_POLICY.rateLimit,
+      agentTiers: parsed.agentTiers ?? DEFAULT_POLICY.agentTiers,
     };
   } catch {
     return { ...DEFAULT_POLICY };
