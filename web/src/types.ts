@@ -36,4 +36,18 @@ export interface DashboardData {
   auditRecords: AuditRecord[];
   sessionKeyAddress: string | null;
   importedAt: string;
+  x402ServerUrl?: string;
+  x402Price?: string;
 }
+
+export interface X402Config {
+  port: number;
+  price: string;
+  priceDisplay: string;
+  usdcContract: string;
+  payTo: string;
+  chainId: number;
+  facilitatorUrl: string;
+}
+
+export type TabKey = "dashboard" | "x402" | "history" | "policy";

@@ -290,21 +290,23 @@ const result = await engine.check({ amount: '0.1', token: 'MON' });
 
 ## 十、🎯 建议实施顺序
 
-| 阶段 | 内容 | 预计收益 |
-|---|---|---|
-| **Phase 1** | GitHub Pages 展示页面 + 基础测试框架 | 展示度 ↑、质量 ↑ |
-| **Phase 2** | CLI 美化与交互 + 测试全覆盖 | 体验 ↑、信心 ↑ |
-| **Phase 3** | 通知机制 + 策略规则扩展 | 安全 ↑、灵活度 ↑ |
-| **Phase 4** | npm 发布 + SDK 导出 + 文档完善 | 传播度 ↑、兼容性 ↑ |
-| **Phase 5** | 链上策略合约 + 监控 | 生产就绪 |
+| 阶段 | 内容 | 预计收益 | 状态 |
+|---|---|---|---|
+| **Phase 1** | GitHub Pages 展示页面 + 基础测试框架 + x402 展示 | 展示度 ↑、质量 ↑ | ✅ 已完成 |
+| **Phase 2** | CLI 美化与交互 + 测试全覆盖 + CHANGELOG | 体验 ↑、信心 ↑ | ✅ 已完成 |
+| **Phase 3** | 通知机制 + 策略规则扩展 | 安全 ↑、灵活度 ↑ | 待实施 |
+| **Phase 4** | npm 发布 + SDK 导出 + 文档完善 | 传播度 ↑、兼容性 ↑ | 待实施 |
+| **Phase 5** | 链上策略合约 + 监控 | 生产就绪 | 待实施 |
 
 ---
 
 ## 快速行动项（本周可做）
 
-- [ ] 创建 `web/` 目录，搭建 React + Vite 项目
-- [ ] 配置 GitHub Actions 自动部署到 GitHub Pages
-- [ ] 安装 Vitest，为 Policy Engine 写 5 个核心测试用例
-- [ ] 引入 `chalk` 美化 CLI 输出
-- [ ] 编写 CHANGELOG.md
-- [ ] 录制一个 3 分钟项目演示视频
+- [x] 创建 `web/` 目录，搭建 React + Vite 项目
+- [x] 配置 GitHub Actions 自动部署到 GitHub Pages
+- [x] 安装 Vitest，为 Policy Engine 写 5 个核心测试用例
+- [x] 引入 `chalk` 美化 CLI 输出
+- [x] 编写 CHANGELOG.md
+- [x] 录制一个 3 分钟项目演示视频
+- [x] 添加 x402 协议测试和 Web 展示
+- [x] 完善 README 文档

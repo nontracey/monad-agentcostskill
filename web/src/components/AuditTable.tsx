@@ -1,5 +1,5 @@
 import type { AuditRecord } from "../types";
-import { shortenAddress, formatTimestamp, getStatusBadge, getModeLabel, exportExplorerUrl } from "../utils";
+import { shortenAddress, formatTimestamp, getStatusBadge, getModeLabel, exportExplorerUrl, formatAmount } from "../utils";
 
 interface AuditTableProps {
   records: AuditRecord[];
@@ -71,7 +71,7 @@ export function AuditTable({ records }: AuditTableProps) {
                   {shortenAddress(r.request.to)}
                 </td>
                 <td style={{ ...tdStyle, fontWeight: 600 }}>
-                  {r.request.amount} {r.request.token}
+                  {formatAmount(r.request.amount, r.request.token)} {r.request.token}
                 </td>
                 <td style={{ ...tdStyle, maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                   title={r.request.reason}

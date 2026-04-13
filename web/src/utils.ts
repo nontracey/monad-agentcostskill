@@ -44,7 +44,27 @@ export function getModeLabel(mode: string): string {
   }
 }
 
-export function calcDailySpent(records: import("./types").AuditRecord[], token: string = "MON"): number {
+export function formatAmount(amount: string, token: string): string {
+  const num = Number(amount);
+  if (isNaN(num)) return amount;
+
+  // USDC has 6 decimals, display properly
+  if (token.toUpperCase() === "USDC") {
+    // If amount looks like smallest units (> 1000), convert
+    if (num > 1000 && !amount.includes(".")) {
+      return (num / 1e6).toFixed(6);
+    }
+    return num.toFixed(6);
+  }
+  // MON and others: standard display
+  if (num < 0.0001 && num > 0) return num.toExponential(4);
+  return num.toFixed(4);
+}
+
+export function calcDailySpent(
+  records: import("./types").AuditRecord[],
+  token: string = "MON"
+): number {
   const today = new Date().toISOString().slice(0, 10);
   return records
     .filter(
@@ -58,4 +78,22 @@ export function calcDailySpent(records: import("./types").AuditRecord[], token: 
 
 export function exportExplorerUrl(txHash: string): string {
   return `https://testnet.monadexplorer.com/tx/${txHash}`;
+}
+
+export function countByMode(
+  records: import("./types").AuditRecord[]
+): Record<string, number> {
+  const counts: Record<string, number> = { direct: 0, mpp: 0, x402: 0 };
+  records.forEach((r) => {
+    counts[r.request.mode] = (counts[r.request.mode] || 0) + 1;
+  });
+  return counts;
+}
+
+export function usdcToHuman(usdcUnits: string): string {
+  // Convert from smallest units (6 decimals) to human readable
+  const num = Number(usdcUnits);
+  if (isNaN(num)) return usdcUnits;
+  if (num > 1000) return (num / 1e6).toFixed(6);
+  return usdcUnits;
 }

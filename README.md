@@ -4,7 +4,13 @@
 
 ## 一句话介绍
 
-通过策略引擎 + Session Key + MPP/直接转账，让 Agent 的每笔支付都 **可控制、可审计、能撤销**。
+通过策略引擎 + Session Key + MPP/直接转账/x402 微支付，让 Agent 的每笔支付都 **可控制、可审计、能撤销**。
+
+## ✨ 新功能
+
+- **🌐 Web Dashboard** — 可视化面板，支持数据导入查看交易历史、策略配置和 x402 协议部署指南
+- **⚡ x402 微支付** — 完整的 x402 协议支持，按次付费访问付费 API 资源
+- **🧪 46 个测试用例** — 全面覆盖策略引擎、审计日志、Session Key 和 x402 协议
 
 ## 架构
 
@@ -20,7 +26,7 @@ Agent ──pay()──→ Policy Engine ──approve?──→ Session Key Sig
 |---|---|---|
 | **Direct Transfer** | Agent 直接转 MON 给某人 | viem 原生转账 |
 | **MPP** | Agent 调用付费 API | @monad-crypto/mpp (push mode) |
-| **x402** | 按次付费的资源访问 | @x402/fetch + @x402/evm（已实现） |
+| **x402** | 按次付费的资源访问 | @x402/fetch + @x402/evm + Facilitator 链上结算 |
 
 ## 快速开始
 
@@ -53,13 +59,37 @@ npx tsx src/cli.ts pay \
   --agent claude-code-001
 ```
 
-### 4. 查看审计日志
+### 4. x402 微支付
+
+```bash
+# Step 1: 启动 x402 测试服务
+npx tsx test/x402-test-server-real.ts
+
+# Step 2: 发起 x402 支付
+npx tsx src/cli.ts pay \
+  --mode x402 \
+  --to http://localhost:3456/api/paid-content \
+  --amount 0.01 \
+  --token USDC \
+  --reason "x402 api call" \
+  --agent test-agent
+```
+
+### 5. 查看审计日志
 
 ```bash
 npx tsx src/cli.ts audit
 ```
 
-### 5. 撤销权限
+### 6. Web Dashboard
+
+```bash
+cd web && npm run dev
+# 浏览器打开 http://localhost:5173
+# 导入 data/audit.log 和 data/policies.json 即可查看可视化面板
+```
+
+### 7. 撤销权限
 
 ```bash
 npx tsx src/cli.ts revoke
@@ -122,6 +152,19 @@ npx tsx src/cli.ts revoke
   "humanConfirmed": false
 }
 ```
+
+## 测试
+
+```bash
+npm test          # 运行全部 46 个测试用例
+npm run test:watch # 监听模式
+```
+
+测试覆盖：
+- **Policy Engine** (18 tests) — Token 限制、单笔限额、日上限、白名单
+- **Audit Logger** (10 tests) — 读写、格式化、倒序、limit
+- **Session Key** (7 tests) — 生成、保存、加载、撤销
+- **x402 协议** (11 tests) — PaymentRequirements 构造、Header 编解码、完整流程模拟
 
 ## 与 MonSkills 集成
 

@@ -1,12 +1,14 @@
 import { useRef, useState } from "react";
-import type { AuditRecord, Policy, DashboardData } from "./types";
-import { calcDailySpent } from "./utils";
+import type { AuditRecord, Policy, DashboardData, TabKey } from "./types";
+import { calcDailySpent, countByMode } from "./utils";
 import { StatCard, ProgressBar, PolicyInfo } from "./components/DashboardCards";
 import { AuditTable } from "./components/AuditTable";
+import { X402Guide } from "./components/X402Guide";
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async () => {
@@ -128,6 +130,14 @@ export default function Dashboard() {
   const totalTx = data.auditRecords.length;
   const approvedTx = data.auditRecords.filter((r: AuditRecord) => r.status === "approved").length;
   const rejectedTx = data.auditRecords.filter((r: AuditRecord) => r.status === "rejected").length;
+  const modeCounts = countByMode(data.auditRecords);
+
+  const tabs: { key: TabKey; label: string; icon: string }[] = [
+    { key: "dashboard", label: "总览", icon: "📊" },
+    { key: "x402", label: "x402 协议", icon: "⚡" },
+    { key: "history", label: "交易历史", icon: "📜" },
+    { key: "policy", label: "策略配置", icon: "📋" },
+  ];
 
   return (
     <div style={containerStyle}>
@@ -143,64 +153,136 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
-        <button onClick={handleReset} style={resetBtnStyle}>
-          🔄 重新导入
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                ...tabBtnStyle,
+                ...(activeTab === tab.key ? tabBtnActiveStyle : {}),
+              }}
+            >
+              {tab.icon} {tab.label}
+              {tab.key === "history" && totalTx > 0 && (
+                <span style={{
+                  background: activeTab === tab.key ? "rgba(255,255,255,0.2)" : "#e5e7eb",
+                  color: activeTab === tab.key ? "#fff" : "#6b7280",
+                  borderRadius: "10px",
+                  padding: "1px 7px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                }}>
+                  {totalTx}
+                </span>
+              )}
+            </button>
+          ))}
+          <button onClick={handleReset} style={resetBtnStyle}>
+            🔄
+          </button>
+        </div>
       </header>
 
       <main style={mainStyle}>
-        {/* Stats Cards */}
-        <div style={grid4Style}>
-          <StatCard
-            icon="💳"
-            title="总交易数"
-            value={String(totalTx)}
-            subtitle={`${approvedTx} 批准 / ${rejectedTx} 拒绝`}
-          />
-          <StatCard
-            icon="📊"
-            title="今日已用"
-            value={`${dailySpent.toFixed(4)}`}
-            subtitle={data.policy ? `${data.policy.allowedTokens[0] || "MON"}` : ""}
-          />
-          <StatCard
-            icon="🔑"
-            title="Session Key"
-            value={data.sessionKeyAddress ? data.sessionKeyAddress.slice(0, 10) + "..." : "未导入"}
-            subtitle={data.policy?.sessionId ? data.policy.sessionId.slice(0, 10) + "..." : ""}
-          />
-          <StatCard
-            icon="🪙"
-            title="允许 Token"
-            value={data.policy?.allowedTokens.join(", ") || "—"}
-            subtitle={data.policy ? `单笔限额 ${data.policy.singleLimit} MON` : ""}
-          />
-        </div>
+        {/* ── Dashboard Tab ──────────────────────────────────── */}
+        {activeTab === "dashboard" && (
+          <>
+            <div style={grid4Style}>
+              <StatCard
+                icon="💳"
+                title="总交易数"
+                value={String(totalTx)}
+                subtitle={`${approvedTx} 批准 / ${rejectedTx} 拒绝`}
+              />
+              <StatCard
+                icon="📊"
+                title="今日已用"
+                value={`${dailySpent.toFixed(4)}`}
+                subtitle={data.policy ? `${data.policy.allowedTokens[0] || "MON"}` : ""}
+              />
+              <StatCard
+                icon="🔑"
+                title="Session Key"
+                value={data.sessionKeyAddress ? data.sessionKeyAddress.slice(0, 10) + "..." : "未导入"}
+                subtitle={data.policy?.sessionId ? data.policy.sessionId.slice(0, 10) + "..." : ""}
+              />
+              <StatCard
+                icon="🪙"
+                title="允许 Token"
+                value={data.policy?.allowedTokens.join(", ") || "—"}
+                subtitle={data.policy ? `单笔限额 ${data.policy.singleLimit} MON` : ""}
+              />
+            </div>
 
-        {/* Progress Bars */}
-        {data.policy && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <ProgressBar
-              used={dailySpent}
-              limit={Number(data.policy.dailyLimit)}
-              label="今日预算使用"
-            />
-            <ProgressBar
-              used={data.auditRecords
-                .filter((r: AuditRecord) => r.status === "approved")
-                .reduce((s: number, r: AuditRecord) => s + Number(r.request.amount), 0)}
-              limit={Number(data.policy.dailyLimit) * 7}
-              label="近 7 日累计支出"
-              unit={data.policy.allowedTokens[0] || "MON"}
-            />
-          </div>
+            {/* Payment mode breakdown */}
+            {(modeCounts.direct > 0 || modeCounts.mpp > 0 || modeCounts.x402 > 0) && (
+              <div style={{
+                background: "#fff",
+                borderRadius: "12px",
+                padding: "20px 24px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                border: "1px solid #f0f0f0",
+              }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600, color: "#6b7280" }}>
+                  支付模式分布
+                </h3>
+                <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                  {modeCounts.direct > 0 && (
+                    <span style={modeBadgeStyle}>
+                      💸 直接转账 <strong>{modeCounts.direct}</strong>
+                    </span>
+                  )}
+                  {modeCounts.mpp > 0 && (
+                    <span style={modeBadgeStyle}>
+                      🔄 MPP <strong>{modeCounts.mpp}</strong>
+                    </span>
+                  )}
+                  {modeCounts.x402 > 0 && (
+                    <span style={{
+                      ...modeBadgeStyle,
+                      background: "#eff6ff",
+                      color: "#2563eb",
+                    }}>
+                      ⚡ x402 <strong>{modeCounts.x402}</strong>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Progress Bars */}
+            {data.policy && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <ProgressBar
+                  used={dailySpent}
+                  limit={Number(data.policy.dailyLimit)}
+                  label="今日预算使用"
+                />
+                <ProgressBar
+                  used={data.auditRecords
+                    .filter((r: AuditRecord) => r.status === "approved")
+                    .reduce((s: number, r: AuditRecord) => s + Number(r.request.amount), 0)}
+                  limit={Number(data.policy.dailyLimit) * 7}
+                  label="近 7 日累计支出"
+                  unit={data.policy.allowedTokens[0] || "MON"}
+                />
+              </div>
+            )}
+
+            {/* Recent transactions */}
+            <AuditTable records={data.auditRecords.slice(0, 5)} />
+          </>
         )}
 
-        {/* Policy Info */}
-        {data.policy && <PolicyInfo policy={data.policy} />}
+        {/* ── x402 Tab ─────────────────────────────────────── */}
+        {activeTab === "x402" && <X402Guide />}
 
-        {/* Audit Table */}
-        <AuditTable records={data.auditRecords} />
+        {/* ── History Tab ──────────────────────────────────── */}
+        {activeTab === "history" && <AuditTable records={data.auditRecords} />}
+
+        {/* ── Policy Tab ───────────────────────────────────── */}
+        {activeTab === "policy" && data.policy && <PolicyInfo policy={data.policy} />}
       </main>
     </div>
   );
@@ -274,4 +356,33 @@ const grid4Style: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "16px",
+};
+
+const tabBtnStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid transparent",
+  padding: "6px 14px",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontSize: "13px",
+  color: "#6b7280",
+  fontWeight: 500,
+  display: "flex",
+  alignItems: "center",
+  gap: "4px",
+  transition: "all 0.15s ease",
+};
+
+const tabBtnActiveStyle: React.CSSProperties = {
+  background: "#6366f1",
+  color: "#fff",
+  borderColor: "#6366f1",
+};
+
+const modeBadgeStyle: React.CSSProperties = {
+  background: "#f3f4f6",
+  padding: "4px 12px",
+  borderRadius: "16px",
+  fontSize: "13px",
+  color: "#374151",
 };
