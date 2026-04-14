@@ -1,9 +1,47 @@
+export interface AgentTier {
+  agentId: string;
+  singleLimit?: string;
+  dailyLimit?: string;
+}
+
+export interface TimeWindow {
+  enabled: boolean;
+  startHour: number;  // 0-23
+  endHour: number;    // 0-23
+}
+
+export interface RateLimit {
+  enabled: boolean;
+  maxPerMinute: number;
+}
+
 export interface Policy {
   singleLimit: string;
   dailyLimit: string;
   allowedTokens: string[];
   whitelistAddresses: string[];
   sessionId: string | null;
+  // Phase 3 新增
+  timeWindow: TimeWindow;
+  rateLimit: RateLimit;
+  agentTiers: AgentTier[];
+}
+
+export interface NotificationRecord {
+  timestamp: string;
+  type: "payment" | "warning" | "daily_report";
+  title: string;
+  message: string;
+  severity: "info" | "warning" | "error";
+}
+
+export interface DailyReport {
+  date: string;           // YYYY-MM-DD
+  totalPayments: number;
+  approvedPayments: number;
+  rejectedPayments: number;
+  totalSpent: Record<string, number>;  // token -> amount
+  topAgents: { agentId: string; count: number; amount: number }[];
 }
 
 export interface PaymentRequest {

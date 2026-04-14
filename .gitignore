@@ -5,3 +5,5 @@ audit.log
 node_modules/
 dist/
 *.tsbuildinfo
+web/dist/
+web/node_modules/
